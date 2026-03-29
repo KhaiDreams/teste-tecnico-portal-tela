@@ -1,0 +1,21 @@
+/*
+Theme Name: Portal Tela
+Theme URI: https://github.com/user/portal-tela
+Description: A modern, responsive WordPress theme built with Bootstrap and Vite for AI-generated content
+Version: 1.0.0
+Author: Portal Tela
+Author URI: https://portaltela.com
+License: MIT
+License URI: https://opensource.org/licenses/MIT
+Text Domain: portal-tela-theme
+Domain Path: /languages
+Requires at least: 6.0
+Requires PHP: 8.0
+Tested up to: 6.x
+*/
+
+/**
+ * This file is used by WordPress to identify the theme.
+ * The actual styles are compiled from SASS and located in assets/css/main.css
+ * See vite.config.ts for build configuration
+ */

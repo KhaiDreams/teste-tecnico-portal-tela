@@ -1,0 +1,276 @@
+// Post styles
+.post {
+  margin-bottom: 3rem;
+
+  &.single-post {
+    max-width: 800px;
+    margin: 0 auto 3rem;
+  }
+}
+
+// Featured image
+.post-thumbnail {
+  margin-bottom: 2rem;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+  img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+}
+
+// Post header
+.post-header {
+  margin-bottom: 2rem;
+
+  h1,
+  h2 {
+    letter-spacing: -0.5px;
+    line-height: 1.3;
+    margin-bottom: 1rem;
+  }
+
+  .post-excerpt {
+    font-size: 1.1rem;
+    color: #555;
+    font-style: italic;
+    margin-bottom: 1rem;
+  }
+}
+
+// Post meta
+.post-meta {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 2rem;
+  color: #7f8c8d;
+  font-size: 0.95rem;
+
+  .post-author,
+  .post-date,
+  .post-category {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+
+    a {
+      color: #3498db;
+      text-decoration: none;
+      transition: color 0.3s ease;
+
+      &:hover {
+        color: #2980b9;
+        text-decoration: underline;
+      }
+    }
+  }
+
+  .post-author::before {
+    content: '✏️';
+  }
+
+  .post-date::before {
+    content: '📅';
+  }
+
+  .post-category::before {
+    content: '📂';
+  }
+}
+
+// Post content
+.post-content {
+  font-size: 1.05rem;
+  line-height: 1.8;
+  color: #333;
+
+  p {
+    margin-bottom: 1.5rem;
+  }
+
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    margin: 1.5rem 0 1rem;
+    color: #2c3e50;
+    font-weight: 600;
+  }
+
+  h2 {
+    font-size: 1.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #3498db;
+  }
+
+  h3 {
+    font-size: 1.4rem;
+  }
+
+  blockquote {
+    border-left: 4px solid #3498db;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+    background: #f8f9fa;
+    font-style: italic;
+    color: #555;
+
+    p {
+      margin: 0;
+    }
+  }
+
+  ul,
+  ol {
+    margin-bottom: 1.5rem;
+    padding-left: 2rem;
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+  }
+
+  pre {
+    background: #2c3e50;
+    color: #ecf0f1;
+    padding: 1rem;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 1.5rem 0;
+    font-size: 0.9rem;
+    line-height: 1.4;
+
+    code {
+      color: inherit;
+      background: transparent;
+      padding: 0;
+    }
+  }
+
+  code {
+    background: #f4f4f4;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.9em;
+    color: #d63384;
+    font-family: 'Courier New', monospace;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+    margin: 1.5rem 0;
+    border-radius: 4px;
+  }
+
+  a {
+    color: #3498db;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: all 0.3s ease;
+
+    &:hover {
+      color: #2980b9;
+      border-bottom-color: #2980b9;
+    }
+  }
+}
+
+// Post tags
+.post-tags {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e0e0e0;
+
+  .tag {
+    display: inline-block;
+    background: #ecf0f1;
+    color: #2c3e50;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+    text-decoration: none;
+    font-size: 0.9rem;
+    transition: all 0.3s ease;
+
+    &:hover {
+      background: #3498db;
+      color: white;
+    }
+  }
+}
+
+// Post navigation
+.post-navigation {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e0e0e0;
+
+  .nav-next,
+  .nav-previous {
+    a {
+      display: block;
+      padding: 1rem;
+      background: #f8f9fa;
+      border-radius: 4px;
+      text-decoration: none;
+      transition: all 0.3s ease;
+
+      &:hover {
+        background: #ecf0f1;
+      }
+    }
+
+    .nav-subtitle {
+      font-size: 0.85rem;
+      color: #7f8c8d;
+      margin-bottom: 0.5rem;
+    }
+
+    .nav-title {
+      color: #3498db;
+      font-weight: 600;
+    }
+  }
+
+  .nav-next {
+    text-align: right;
+  }
+}
+
+@media (max-width: 768px) {
+  .post-meta {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .post-navigation {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+
+    .nav-next {
+      text-align: left;
+    }
+  }
+
+  .post-content {
+    font-size: 1rem;
+
+    h2 {
+      font-size: 1.5rem;
+    }
+
+    h3 {
+      font-size: 1.25rem;
+    }
+  }
+}

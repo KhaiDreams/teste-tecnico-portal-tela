@@ -1,0 +1,58 @@
+// Header styles
+.site-header {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  padding: 2rem 0;
+  margin-bottom: 3rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+  .site-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: white;
+    margin: 0;
+    margin-bottom: 0.5rem;
+
+    a {
+      color: white;
+      text-decoration: none;
+      transition: opacity 0.3s ease;
+
+      &:hover {
+        opacity: 0.8;
+      }
+    }
+  }
+
+  .site-description {
+    color: rgba(255, 255, 255, 0.8);
+    margin: 0;
+    font-size: 0.95rem;
+  }
+
+  nav.navbar {
+    background: transparent;
+    padding: 1rem 0 0 0;
+
+    .nav-link {
+      color: rgba(255, 255, 255, 0.8) !important;
+      transition: color 0.3s ease;
+      font-weight: 500;
+
+      &:hover,
+      &.active {
+        color: white !important;
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .site-header {
+    padding: 1.5rem 0;
+    margin-bottom: 2rem;
+
+    .site-title {
+      font-size: 1.5rem;
+    }
+  }
+}
