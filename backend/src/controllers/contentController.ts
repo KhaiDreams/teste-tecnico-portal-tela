@@ -50,7 +50,7 @@ export class ContentController {
       logger.info(`Post created in database with ID: ${post.id}`);
 
       // Step 4: Send webhook to WordPress (async)
-      this.publishToWordPressAsync(post.id, { title, content: content, excerpt, status: 'draft' });
+      this.publishToWordPressAsync(post.id, { title, content: content, excerpt, status: 'publish' });
 
       res.status(201).json({
         success: true,
