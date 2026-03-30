@@ -1,0 +1,207 @@
+{
+  "info": {
+    "name": "Portal Tela - Full API Flow",
+    "_postman_id": "8ee9d0f6-9195-4b10-88b4-b7e8775ca876",
+    "description": "Colecao completa para validar backend + plugin WordPress no escopo do teste tecnico.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Backend - Root",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{backend_url}}/",
+          "host": [
+            "{{backend_url}}"
+          ],
+          "path": [
+            ""
+          ]
+        }
+      }
+    },
+    {
+      "name": "Backend - Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{backend_url}}/api/health",
+          "host": [
+            "{{backend_url}}"
+          ],
+          "path": [
+            "api",
+            "health"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Backend - Health Detailed",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{backend_url}}/api/health/detailed",
+          "host": [
+            "{{backend_url}}"
+          ],
+          "path": [
+            "api",
+            "health",
+            "detailed"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Backend - Generate Post",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"url\": \"https://www.tabnews.com.br/luangregati/capivara-criada-por-ia-faz-prefeitura-tapar-buraco-em-cidade-de-minas-gerais\"\n}"
+        },
+        "url": {
+          "raw": "{{backend_url}}/api/generate-post",
+          "host": [
+            "{{backend_url}}"
+          ],
+          "path": [
+            "api",
+            "generate-post"
+          ]
+        }
+      }
+    },
+    {
+      "name": "Backend - List Posts",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{backend_url}}/api/posts?limit=20&offset=0",
+          "host": [
+            "{{backend_url}}"
+          ],
+          "path": [
+            "api",
+            "posts"
+          ],
+          "query": [
+            {
+              "key": "limit",
+              "value": "20"
+            },
+            {
+              "key": "offset",
+              "value": "0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Backend - Post Detail",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{backend_url}}/api/posts/{{post_id}}",
+          "host": [
+            "{{backend_url}}"
+          ],
+          "path": [
+            "api",
+            "posts",
+            "{{post_id}}"
+          ]
+        }
+      }
+    },
+    {
+      "name": "WordPress Plugin - Health",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{wordpress_url}}/index.php?rest_route=/content-generator/v1/health",
+          "host": [
+            "{{wordpress_url}}"
+          ],
+          "path": [
+            "index.php"
+          ],
+          "query": [
+            {
+              "key": "rest_route",
+              "value": "/content-generator/v1/health"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "WordPress Plugin - Receive Post (Webhook)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "X-Webhook-Secret",
+            "value": "{{webhook_secret}}"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Post de teste via webhook\",\n  \"content\": \"<p>Conteudo de teste para validar o endpoint do plugin.</p><h2>Secao 1</h2><p>Texto complementar.</p>\",\n  \"excerpt\": \"Resumo do post de teste\",\n  \"status\": \"publish\",\n  \"content_generator_id\": 999,\n  \"source_url\": \"https://example.com\"\n}"
+        },
+        "url": {
+          "raw": "{{wordpress_url}}/index.php?rest_route=/content-generator/v1/receive-post",
+          "host": [
+            "{{wordpress_url}}"
+          ],
+          "path": [
+            "index.php"
+          ],
+          "query": [
+            {
+              "key": "rest_route",
+              "value": "/content-generator/v1/receive-post"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "backend_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "wordpress_url",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "webhook_secret",
+      "value": "webhook-secret"
+    },
+    {
+      "key": "post_id",
+      "value": "1"
+    }
+  ]
+}
