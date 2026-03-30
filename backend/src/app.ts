@@ -3,7 +3,6 @@ import cors from 'cors';
 import helmet from 'helmet';
 import { body } from 'express-validator';
 import config from './config/env';
-import { authMiddleware } from './middleware/authMiddleware';
 import { errorHandler } from './middleware/errorHandler';
 import { generatePostLimiter, apiLimiter } from './middleware/rateLimitMiddleware';
 import { contentController } from './controllers/contentController';
@@ -63,9 +62,7 @@ export function createApp(): express.Application {
     contentController.generatePost.bind(contentController)
   );
 
-  // Protected routes
-  app.use('/api/posts', authMiddleware);
-
+  // Public routes for technical-test validation
   app.get(
     '/api/posts/:id',
     contentController.getPostStatus.bind(contentController)
@@ -85,8 +82,8 @@ export function createApp(): express.Application {
       endpoints: {
         health: '/api/health',
         generate: 'POST /api/generate-post',
-        posts: 'GET /api/posts',
-        postDetail: 'GET /api/posts/:id',
+        posts: 'GET /api/posts (public)',
+        postDetail: 'GET /api/posts/:id (public)',
       },
     });
   });
