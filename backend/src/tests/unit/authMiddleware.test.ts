@@ -1,6 +1,7 @@
 import { authMiddleware, generateToken } from '../../middleware/authMiddleware';
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
+import { jest } from '@jest/globals';
 
 describe('Auth Middleware', () => {
   describe('generateToken', () => {

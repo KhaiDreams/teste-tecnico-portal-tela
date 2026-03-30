@@ -1,6 +1,5 @@
 import request from 'supertest';
 import createApp from '../../app';
-import { describe } from 'node:test';
 
 describe('Content Generation API', () => {
   const app = createApp();
