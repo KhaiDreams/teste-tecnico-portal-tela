@@ -6,6 +6,7 @@ import { OpenAIResponse } from '../types/index';
 
 const MIN_ARTICLE_WORDS = 380;
 const TARGET_ARTICLE_WORDS = '450-650';
+const MIN_PARAGRAPHS = 6;
 
 // Simple DOMPurify initialization without jsdom
 const purify = (content: string): string => {
@@ -59,11 +60,95 @@ export class ContentGenerationService {
     const paragraphCount = (content.match(/<p[\s>]/gi) || []).length;
     const h2Count = (content.match(/<h2[\s>]/gi) || []).length;
     const h3Count = (content.match(/<h3[\s>]/gi) || []).length;
-    return paragraphCount >= 5 && h2Count >= 2 && h3Count >= 1;
+    return paragraphCount >= MIN_PARAGRAPHS && h2Count >= 2 && h3Count >= 1;
   }
 
   private isQualityAcceptable(content: string): boolean {
     return this.countWords(content) >= MIN_ARTICLE_WORDS && this.hasArticleStructure(content);
+  }
+
+  private normalizeWhitespace(value: string): string {
+    return value
+      .replace(/\r\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/[ \t]{2,}/g, ' ')
+      .trim();
+  }
+
+  private plainTextToParagraphs(text: string): string[] {
+    const normalized = this.normalizeWhitespace(text);
+    const byBlankLine = normalized
+      .split(/\n\s*\n/)
+      .map((paragraph) => paragraph.trim())
+      .filter((paragraph) => paragraph.length > 0);
+
+    if (byBlankLine.length >= MIN_PARAGRAPHS) {
+      return byBlankLine;
+    }
+
+    const sentences = normalized
+      .replace(/\n/g, ' ')
+      .split(/(?<=[.!?])\s+/)
+      .map((sentence) => sentence.trim())
+      .filter(Boolean);
+
+    if (sentences.length === 0) {
+      return [];
+    }
+
+    const chunks: string[] = [];
+    const chunkSize = 2;
+    for (let i = 0; i < sentences.length; i += chunkSize) {
+      chunks.push(sentences.slice(i, i + chunkSize).join(' '));
+    }
+
+    return chunks;
+  }
+
+  private forceEditorialHtml(rawContent: string): string {
+    const normalized = this.normalizeWhitespace(rawContent)
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/^###\s+(.+)$/gim, '<h3>$1</h3>')
+      .replace(/^##\s+(.+)$/gim, '<h2>$1</h2>')
+      .replace(/^#\s+(.+)$/gim, '')
+      .trim();
+
+    const hasAnyHtml = /<p[\s>]|<h2[\s>]|<h3[\s>]/i.test(normalized);
+    if (hasAnyHtml) {
+      return normalized;
+    }
+
+    const paragraphs = this.plainTextToParagraphs(normalized);
+    if (paragraphs.length === 0) {
+      return `<p>${normalized}</p>`;
+    }
+
+    const introOne = paragraphs[0] || '';
+    const introTwo = paragraphs[1] || '';
+    const middleOne = paragraphs.slice(2, 5);
+    const middleTwo = paragraphs.slice(5, 8);
+    const tail = paragraphs.slice(8);
+    const conclusion = tail.length > 0 ? tail.join(' ') : paragraphs.slice(-2).join(' ');
+
+    const htmlParts: string[] = [];
+    htmlParts.push(`<p>${introOne}</p>`);
+    if (introTwo) {
+      htmlParts.push(`<p>${introTwo}</p>`);
+    }
+
+    htmlParts.push('<h2>Contexto e pontos principais</h2>');
+    middleOne.forEach((paragraph) => htmlParts.push(`<p>${paragraph}</p>`));
+
+    htmlParts.push('<h2>Aplicacoes praticas</h2>');
+    htmlParts.push('<h3>Boas praticas recomendadas</h3>');
+    middleTwo.forEach((paragraph) => htmlParts.push(`<p>${paragraph}</p>`));
+
+    htmlParts.push('<h2>Conclusao</h2>');
+    if (conclusion) {
+      htmlParts.push(`<p>${conclusion}</p>`);
+    }
+
+    return htmlParts.join('\n');
   }
 
   private buildGenerationPrompt(originalContent: string): string {
@@ -79,11 +164,14 @@ Regras obrigatórias:
 - Produza conteúdo original, sem plágio e fiel aos fatos da fonte.
 - Não mencione IA, modelo, prompt ou processo interno.
 - O campo "content" deve estar em HTML válido para WordPress, com tags <p>, <h2>, <h3>, <ul>, <li> quando útil.
+- O artigo deve parecer um texto de jornalista profissional, com linguagem natural, contextualizacao e conclusao clara.
 - Estrutura mínima:
-  1) introdução com 2 parágrafos;
+  1) introdução com 2 parágrafos curtos;
   2) ao menos 2 seções com <h2>;
   3) ao menos 1 subseção com <h3>;
   4) conclusão com chamada prática.
+- Distribua o texto em 7 a 10 parágrafos no total, evitando bloco unico.
+- Cada parágrafo deve ter no máximo 2-4 frases.
 - Tamanho alvo do artigo: ${TARGET_ARTICLE_WORDS} palavras.
 - O artigo precisa ter no mínimo ${MIN_ARTICLE_WORDS} palavras.
 - Excerpt entre 140 e 180 caracteres.
@@ -116,8 +204,9 @@ Objetivo obrigatório da revisão:
 - manter tema principal;
 - transformar em artigo com qualidade editorial;
 - no mínimo ${MIN_ARTICLE_WORDS} palavras;
-- incluir pelo menos 5 parágrafos <p>, 2 títulos <h2> e 1 subtítulo <h3>;
+- incluir pelo menos ${MIN_PARAGRAPHS} parágrafos <p>, 2 títulos <h2> e 1 subtítulo <h3>;
 - evitar blocão único, criar leitura escaneável.
+- escrever com tom jornalístico e profissional.
 
 Retorne APENAS JSON válido com:
 {
@@ -234,10 +323,13 @@ Retorne APENAS JSON válido com:
         finalRawResponse = revisedResponse.raw;
       }
 
+      // Deterministic fallback to avoid single-block content
+      parsedContent.content = this.forceEditorialHtml(parsedContent.content);
+
       // Sanitize content to prevent XSS
       const sanitizedContent = this.sanitizeContent(parsedContent.content);
-      const sanitizedTitle = this.sanitizeContent(parsedContent.title);
-      const sanitizedExcerpt = this.sanitizeContent(parsedContent.excerpt);
+      const sanitizedTitle = this.stripHtml(this.sanitizeContent(parsedContent.title));
+      const sanitizedExcerpt = this.stripHtml(this.sanitizeContent(parsedContent.excerpt));
 
       if (!this.isQualityAcceptable(sanitizedContent)) {
         logger.warn(
