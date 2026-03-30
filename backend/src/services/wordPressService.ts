@@ -61,7 +61,7 @@ export class WordPressService {
   async publishPost(payload: WordPressPostPayload): Promise<number> {
     const webhookUrl = `${config.WORDPRESS_URL}${config.WORDPRESS_PLUGIN_ENDPOINT}`;
 
-    return this.retryWithBackoff(async () => {
+    return WordPressService.retryWithBackoff(async () => {
       try {
         logger.info(`Sending webhook to WordPress: ${webhookUrl}`);
 
@@ -75,7 +75,7 @@ export class WordPressService {
         });
 
         // Validate response structure and content
-        if (!this.validateWebhookResponse(response.data)) {
+        if (!WordPressService.validateWebhookResponse(response.data)) {
           logger.error('Invalid webhook response format', {
             status: response.status,
             data: response.data,
@@ -114,7 +114,7 @@ export class WordPressService {
   ): Promise<void> {
     const webhookUrl = `${config.WORDPRESS_URL}${config.WORDPRESS_PLUGIN_ENDPOINT}`;
 
-    return this.retryWithBackoff(async () => {
+    return WordPressService.retryWithBackoff(async () => {
       try {
         const payload = {
           action: 'update_status',
@@ -149,12 +149,9 @@ export class WordPressService {
    */
   async healthCheck(): Promise<boolean> {
     try {
-      const response = await axios.get(
-        `${config.WORDPRESS_URL}/wp-json/content-generator/v1/health`,
-        {
-          timeout: 5000,
-        }
-      );
+      const response = await axios.get(`${config.WORDPRESS_URL}${config.WORDPRESS_HEALTH_ENDPOINT}`, {
+        timeout: 5000,
+      });
       return response.status === 200 && response.data?.success === true;
     } catch (error) {
       logger.error('WordPress health check failed', error);
