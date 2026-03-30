@@ -28,6 +28,21 @@ Motivo (escopo de teste tecnico):
 - deixar leitura publica reduz atrito para o avaliador testar rapidamente no Postman;
 - autenticacao para leitura foi tratada como evolucao em producao
 
+O que ja esta pronto no codigo:
+
+- middleware JWT implementado em `backend/src/middleware/authMiddleware.ts`;
+- testes unitarios cobrindo geracao e validacao de token;
+- configuracao por variaveis (`JWT_SECRET`, `JWT_EXPIRES_IN`) pronta para endurecer acesso.
+
+Como ativar depois (1 passo):
+
+- adicionar `authMiddleware` nas rotas que devem ser privadas em `backend/src/app.ts`.
+
+Resumo da decisao:
+
+- neste teste tecnico, as rotas foram mantidas publicas de forma intencional para facilitar validacao funcional;
+- a base de autenticacao interna por token ja foi implementada para demonstrar prontidao de producao, sem aumentar friccao de teste.
+
 ## 3) Seguranca e escalabilidade
 Seguranca implementada:
 
@@ -139,7 +154,53 @@ Collection completa:
 
 Ela cobre todas as rotas do backend e os endpoints do plugin WordPress para teste integrado.
 
-## 11) Entregaveis do desafio
+## 11) Testes implementados
+
+O backend possui uma camada de testes para garantir funcionamento basico e regressao controlada.
+
+Tipos de testes desenvolvidos:
+
+- Unitarios (`backend/src/tests/unit/authMiddleware.test.ts`)
+  - validacao de geracao de token JWT;
+  - validacao de expiracao customizada;
+  - cenarios de middleware: sem header, header invalido, token valido e token expirado.
+  - observacao: estes testes existem para comprovar que a protecao por token interno esta pronta para uso, mesmo com endpoints publicos no escopo deste desafio.
+
+- E2E de API (`backend/src/tests/e2e/api.test.ts`)
+  - `GET /api/health` retorna status esperado;
+  - `GET /` retorna metadados da API;
+  - `POST /api/generate-post` valida URL invalida e payload ausente;
+  - tratamento de `404` para rota inexistente.
+
+- Validacao rapida de ambiente (`backend/src/tests/quick-validation.ts`)
+  - checagem de variaveis obrigatorias;
+  - geracao de JWT;
+  - validacao de configuracao geral e OpenAI.
+
+Configuracao de testes:
+
+- `backend/jest.config.cjs`: configuracao Jest para ESM + TypeScript (`ts-jest`).
+- `backend/src/tests/setup.ts`: carrega `.env.test` antes da execucao dos testes.
+- `backend/.env.test`: variaveis de ambiente para ambiente de teste.
+
+Como rodar localmente:
+
+```bash
+cd backend
+npm install
+npm run build
+npm test
+npm run validate
+```
+
+Como rodar via Docker:
+
+```bash
+docker compose run --rm --build backend npm run build
+docker compose run --rm --build backend npm test -- --runInBand
+```
+
+## 12) Entregaveis do desafio
 
 Status no projeto:
 
