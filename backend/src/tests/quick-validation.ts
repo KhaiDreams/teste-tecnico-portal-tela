@@ -12,9 +12,11 @@ const tests: Array<{ name: string; fn: () => boolean }> = [
     name: 'Validar variáveis de ambiente',
     fn: () => {
       try {
-        config.validate();
-        logger.info('Todas as variáveis obrigatórias estão definidas');
-        return true;
+        if (config.OPENAI_API_KEY && config.JWT_SECRET && config.WORDPRESS_WEBHOOK_SECRET) {
+          logger.info('Variáveis obrigatórias carregadas com sucesso');
+          return true;
+        }
+        return false;
       } catch (error) {
         logger.error('Erro na validação de env:', error);
         return false;

@@ -8,6 +8,8 @@ RUN apk add --no-cache ca-certificates
 # Copy package files
 COPY package*.json ./
 COPY tsconfig.json ./
+COPY jest.config.cjs ./
+COPY .env.test ./.env.test
 
 # Install dependencies
 RUN npm install
