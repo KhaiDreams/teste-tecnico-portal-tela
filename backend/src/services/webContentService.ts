@@ -6,56 +6,70 @@ export class WebContentService {
   private static readonly USER_AGENT =
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
+  private static readonly BLOCKED_HOSTNAMES = new Set([
+    'localhost',
+    'localhost.localdomain',
+    '0.0.0.0',
+    '127.0.0.1',
+    '::1',
+    '[::1]',
+  ]);
+
   /**
    * Check if a hostname/IP is internal or blocked
    */
   private static isBlockedHost(hostname: string): boolean {
-    // Blocked hostnames
-    const blockedHostnames = ['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]'];
-    if (blockedHostnames.includes(hostname)) {
+    const normalizedHost = hostname.trim().toLowerCase();
+
+    if (WebContentService.BLOCKED_HOSTNAMES.has(normalizedHost)) {
       return true;
     }
 
-    // Try to parse as IP address
-    try {
-      const addr = ipaddr.process(hostname);
-
-      // Check for private/reserved ranges
-      if (addr.kind() === 'ipv4') {
-        const ipv4 = addr as ipaddr.IPv4;
-        return (
-          ipv4.isLoopback() || // 127.0.0.0/8
-          ipv4.isPrivate() || // 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
-          ipv4.isLinkLocal() || // 169.254.0.0/16
-          ipv4.isMulticast() || // 224.0.0.0/4
-          ipv4.isReserved() || // Reserved range
-          ipv4.isZero() // 0.0.0.0
-        );
-      }
-
-      if (addr.kind() === 'ipv6') {
-        const ipv6 = addr as ipaddr.IPv6;
-        return (
-          ipv6.isLoopback() ||
-          ipv6.isPrivate() ||
-          ipv6.isLinkLocal() ||
-          ipv6.isMulticast() ||
-          ipv6.isReserved()
-        );
-      }
-    } catch (error) {
-      // If not a valid IP, continue
+    if (normalizedHost.endsWith('.local') || normalizedHost.endsWith('.internal')) {
+      return true;
     }
 
-    return false;
+    try {
+      if (!ipaddr.isValid(normalizedHost)) {
+        return false;
+      }
+
+      const addr = ipaddr.parse(normalizedHost);
+      const range = addr.range();
+
+      // Any non-public range is blocked for SSRF protection
+      const blockedRanges = new Set([
+        'unspecified',
+        'broadcast',
+        'multicast',
+        'linkLocal',
+        'loopback',
+        'private',
+        'uniqueLocal',
+        'reserved',
+        'carrierGradeNat',
+        'ipv4Mapped',
+      ]);
+
+      return blockedRanges.has(range);
+    } catch {
+      return true;
+    }
   }
 
   async fetchContent(url: string): Promise<string> {
     try {
-      // Validate URL format
       const urlObj = new URL(url);
+      const protocol = urlObj.protocol.toLowerCase();
 
-      // Check for blocked hostnames/IPs (SSRF protection)
+      if (protocol !== 'http:' && protocol !== 'https:') {
+        throw new Error('Only http/https URLs are allowed');
+      }
+
+      if (urlObj.username || urlObj.password) {
+        throw new Error('URLs with embedded credentials are not allowed');
+      }
+
       if (WebContentService.isBlockedHost(urlObj.hostname)) {
         throw new Error(`URL host is not accessible: ${urlObj.hostname}. Internal URLs are blocked.`);
       }
