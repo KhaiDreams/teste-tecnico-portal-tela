@@ -4,20 +4,19 @@ import config from '../config/env';
 import { logger } from '../utils/logger';
 import { OpenAIResponse } from '../types/index';
 
+const MIN_ARTICLE_WORDS = 380;
+const TARGET_ARTICLE_WORDS = '450-650';
+
 // Simple DOMPurify initialization without jsdom
 const purify = (content: string): string => {
-  // Use DOMPurify library directly (works in Node without jsdom)
   try {
-    const window = { document: {} } as any;
     const whitelist = {
       ALLOWED_TAGS: ['b', 'i', 'em', 'strong', 'p', 'br', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3'],
       ALLOWED_ATTR: ['href', 'title'],
     };
 
-    // Use dompurify with node-safe configuration
-    return DOMPurify.sanitize(content, whitelist as any) || content;
+    return String(DOMPurify.sanitize(content, whitelist as any) || content);
   } catch {
-    // If DOMPurify fails, perform basic sanitization
     return basicSanitize(content);
   }
 };
@@ -43,6 +42,113 @@ export class ContentGenerationService {
     });
   }
 
+  private stripHtml(content: string): string {
+    return content.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+
+  private countWords(content: string): number {
+    const plainText = this.stripHtml(content);
+    if (!plainText) {
+      return 0;
+    }
+
+    return plainText.split(/\s+/).filter(Boolean).length;
+  }
+
+  private hasArticleStructure(content: string): boolean {
+    const paragraphCount = (content.match(/<p[\s>]/gi) || []).length;
+    const h2Count = (content.match(/<h2[\s>]/gi) || []).length;
+    const h3Count = (content.match(/<h3[\s>]/gi) || []).length;
+    return paragraphCount >= 5 && h2Count >= 2 && h3Count >= 1;
+  }
+
+  private isQualityAcceptable(content: string): boolean {
+    return this.countWords(content) >= MIN_ARTICLE_WORDS && this.hasArticleStructure(content);
+  }
+
+  private buildGenerationPrompt(originalContent: string): string {
+    return `
+Você é um redator profissional de conteúdo editorial e SEO.
+Reescreva a fonte abaixo em formato de artigo para blog.
+
+Fonte:
+${originalContent}
+
+Regras obrigatórias:
+- Escreva TODO o resultado em português do Brasil (pt-BR).
+- Produza conteúdo original, sem plágio e fiel aos fatos da fonte.
+- Não mencione IA, modelo, prompt ou processo interno.
+- O campo "content" deve estar em HTML válido para WordPress, com tags <p>, <h2>, <h3>, <ul>, <li> quando útil.
+- Estrutura mínima:
+  1) introdução com 2 parágrafos;
+  2) ao menos 2 seções com <h2>;
+  3) ao menos 1 subseção com <h3>;
+  4) conclusão com chamada prática.
+- Tamanho alvo do artigo: ${TARGET_ARTICLE_WORDS} palavras.
+- O artigo precisa ter no mínimo ${MIN_ARTICLE_WORDS} palavras.
+- Excerpt entre 140 e 180 caracteres.
+
+Retorne APENAS JSON válido com as chaves:
+{
+  "title": "string",
+  "content": "string em HTML",
+  "excerpt": "string"
+}
+`;
+  }
+
+  private buildRevisionPrompt(draftTitle: string, draftContent: string, draftExcerpt: string): string {
+    return `
+Melhore o artigo abaixo para ficar mais completo e bem estruturado.
+
+Título atual:
+${draftTitle}
+
+Conteúdo atual:
+${draftContent}
+
+Excerpt atual:
+${draftExcerpt}
+
+Objetivo obrigatório da revisão:
+- manter português do Brasil (pt-BR);
+- manter coerência factual;
+- manter tema principal;
+- transformar em artigo com qualidade editorial;
+- no mínimo ${MIN_ARTICLE_WORDS} palavras;
+- incluir pelo menos 5 parágrafos <p>, 2 títulos <h2> e 1 subtítulo <h3>;
+- evitar blocão único, criar leitura escaneável.
+
+Retorne APENAS JSON válido com:
+{
+  "title": "string",
+  "content": "string em HTML",
+  "excerpt": "string"
+}
+`;
+  }
+
+  private async requestOpenAIJson(prompt: string): Promise<{
+    parsed: { title: string; content: string; excerpt: string };
+    raw: any;
+  }> {
+    const messageResponse = await (this.openai.chat.completions.create as any)({
+      model: config.OPENAI_MODEL,
+      max_tokens: 2400,
+      temperature: 0.6,
+      messages: [
+        {
+          role: 'user',
+          content: prompt,
+        },
+      ],
+    });
+
+    const responseText = messageResponse.choices[0]?.message?.content || '';
+    const parsed = this.parseOpenAIResponse(responseText);
+    return { parsed, raw: messageResponse };
+  }
+
   /**
    * Sanitize content from potential XSS attacks
    */
@@ -64,18 +170,17 @@ export class ContentGenerationService {
     excerpt: string;
   } {
     try {
-      // Extract JSON from response - more robust parsing
-      let jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      const cleanResponse = responseText
+        .replace(/```json/gi, '')
+        .replace(/```/g, '')
+        .trim();
+
+      const jsonMatch = cleanResponse.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {
         throw new Error('No JSON found in OpenAI response');
       }
 
-      let jsonString = jsonMatch[0];
-
-      // Clean up problematic characters in JSON strings
-      jsonString = jsonString.replace(/\n/g, ' ').replace(/\r/g, ' ');
-
-      const parsedContent = JSON.parse(jsonString);
+      const parsedContent = JSON.parse(jsonMatch[0]);
 
       // Validate required fields
       if (!parsedContent.title || typeof parsedContent.title !== 'string') {
@@ -111,48 +216,34 @@ export class ContentGenerationService {
     try {
       logger.info('Starting content generation with OpenAI');
 
-      // First API call: Generate new content based on original
-      const generationPrompt = `
-You are a professional content writer and SEO specialist.
-Your task is to rewrite and improve the following content to make it more engaging, SEO-friendly, and valuable for readers.
+      logger.debug('Sending initial content generation request to OpenAI API');
+      const initialPrompt = this.buildGenerationPrompt(originalContent);
+      const firstResponse = await this.requestOpenAIJson(initialPrompt);
+      let parsedContent = firstResponse.parsed;
+      let finalRawResponse = firstResponse.raw;
 
-Original Content:
-${originalContent}
-
-Please provide:
-1. A compelling and SEO-optimized title (50-60 characters)
-2. An improved, well-structured content that expands on the original (at least 500 words)
-3. A brief meta-description/excerpt (150-160 characters)
-
-Format your response as JSON with keys: title, content, excerpt
-
-Make sure the content is original, non-plagiarized, and provides genuine value.`;
-
-      logger.debug('Sending request to OpenAI API for content generation');
-
-      const messageResponse = await (this.openai.chat.completions.create as any)({
-        model: config.OPENAI_MODEL,
-        max_tokens: 2000,
-        messages: [
-          {
-            role: 'user',
-            content: generationPrompt,
-          },
-        ],
-      });
-
-      // Parse the response
-      const responseText = messageResponse.choices[0].message.content || '';
-
-      logger.debug('Parsing and validating OpenAI response');
-
-      // Parse and validate response
-      const parsedContent = this.parseOpenAIResponse(responseText);
+      if (!this.isQualityAcceptable(parsedContent.content)) {
+        logger.info('Generated content below quality threshold; requesting structured revision');
+        const revisionPrompt = this.buildRevisionPrompt(
+          parsedContent.title,
+          parsedContent.content,
+          parsedContent.excerpt
+        );
+        const revisedResponse = await this.requestOpenAIJson(revisionPrompt);
+        parsedContent = revisedResponse.parsed;
+        finalRawResponse = revisedResponse.raw;
+      }
 
       // Sanitize content to prevent XSS
       const sanitizedContent = this.sanitizeContent(parsedContent.content);
       const sanitizedTitle = this.sanitizeContent(parsedContent.title);
       const sanitizedExcerpt = this.sanitizeContent(parsedContent.excerpt);
+
+      if (!this.isQualityAcceptable(sanitizedContent)) {
+        logger.warn(
+          `Content generated below target quality: words=${this.countWords(sanitizedContent)}, sourceUrl=${sourceUrl}`
+        );
+      }
 
       // Additional validation: max content size
       if (sanitizedContent.length > 100000) {
@@ -166,12 +257,12 @@ Make sure the content is original, non-plagiarized, and provides genuine value.`
         content: sanitizedContent,
         excerpt: sanitizedExcerpt,
         openaiResponse: {
-          id: messageResponse.id,
+          id: finalRawResponse.id,
           object: 'chat.completion',
-          created: messageResponse.created,
-          model: messageResponse.model,
-          choices: messageResponse.choices,
-          usage: messageResponse.usage,
+          created: finalRawResponse.created,
+          model: finalRawResponse.model,
+          choices: finalRawResponse.choices,
+          usage: finalRawResponse.usage,
         } as any,
       };
     } catch (error) {
