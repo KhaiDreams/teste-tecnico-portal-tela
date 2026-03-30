@@ -44,7 +44,10 @@ class Webhook
 
     public static function verify_request(\WP_REST_Request $request)
     {
-        $secret = get_option('content_generator_webhook_secret');
+        $secret = getenv('WORDPRESS_WEBHOOK_SECRET');
+        if (!$secret) {
+            $secret = get_option('content_generator_webhook_secret');
+        }
         $provided_secret = $request->get_header('X-Webhook-Secret');
 
         if (!$provided_secret || $provided_secret !== $secret) {

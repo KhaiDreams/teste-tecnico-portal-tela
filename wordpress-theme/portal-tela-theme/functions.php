@@ -60,8 +60,6 @@ function portal_tela_enqueue_assets()
     remove_action('wp_head', 'print_emoji_detection_script', 7);
     remove_action('wp_print_styles', 'print_emoji_styles');
 
-    // Add preconnect to Google Fonts (if used)
-    wp_register_style('google-fonts', 'https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;500;600;700&display=swap');
 }
 
 // Register sidebars/widgets

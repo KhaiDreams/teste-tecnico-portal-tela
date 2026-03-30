@@ -10,7 +10,7 @@ get_header();
     <div class="container">
         <div class="row">
             <!-- Main content -->
-            <div class="col col-md-8">
+            <div class="col-12 col-lg-8">
                 <?php
                 while (have_posts()) :
                     the_post();
@@ -182,7 +182,7 @@ get_header();
             </div>
 
             <!-- Sidebar -->
-            <aside class="col col-md-4">
+            <aside class="col-12 col-lg-4 post-sidebar">
                 <?php
                 if (is_active_sidebar('primary-sidebar')) {
                     dynamic_sidebar('primary-sidebar');
