@@ -1,16 +1,12 @@
-version: '3.9'
-
 services:
-  # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
     container_name: portal-tela-postgres
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
       POSTGRES_DB: ${DB_NAME:-content_generator}
-    ports:
-      - '${DB_PORT:-5432}:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -21,12 +17,75 @@ services:
       timeout: 5s
       retries: 5
 
-  # Node.js Backend Service
+  mysql:
+    image: mysql:8.0
+    container_name: portal-tela-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${WORDPRESS_DB_NAME:-wordpress}
+      MYSQL_USER: ${WORDPRESS_DB_USER:-wordpress}
+      MYSQL_PASSWORD: ${WORDPRESS_DB_PASSWORD:-wordpress}
+    command: --default-authentication-plugin=mysql_native_password
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - portal-tela-network
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  theme-builder:
+    image: node:20-alpine
+    container_name: portal-tela-theme-builder
+    working_dir: /theme
+    command: sh -c "npm install && SASS_SILENCE_DEPRECATIONS=legacy-js-api,import,global-builtin,color-functions npm run build"
+    volumes:
+      - ./wordpress-theme/portal-tela-theme:/theme
+    restart: 'no'
+
+  wordpress:
+    image: wordpress:6-apache
+    container_name: portal-tela-wordpress
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+      theme-builder:
+        condition: service_completed_successfully
+    environment:
+      WORDPRESS_DB_HOST: mysql:3306
+      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME:-wordpress}
+      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER:-wordpress}
+      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD:-wordpress}
+      WORDPRESS_TABLE_PREFIX: wp_
+      WORDPRESS_DEBUG: ${WORDPRESS_DEBUG:-false}
+      WORDPRESS_DEBUG_LOG: /var/www/html/wp-content/debug.log
+      WORDPRESS_WEBHOOK_SECRET: ${WORDPRESS_WEBHOOK_SECRET:-webhook-secret}
+    ports:
+      - '8080:80'
+    volumes:
+      - wordpress_data:/var/www/html
+      - ./wordpress-plugin/content-generator:/var/www/html/wp-content/plugins/content-generator
+      - ./wordpress-theme/portal-tela-theme:/var/www/html/wp-content/themes/portal-tela-theme
+    networks:
+      - portal-tela-network
+
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: portal-tela-backend
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      wordpress:
+        condition: service_started
     environment:
       NODE_ENV: ${NODE_ENV:-development}
       PORT: 3000
@@ -37,100 +96,18 @@ services:
       DB_USER: ${DB_USER:-postgres}
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
-      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-3.5-turbo}
-      WORDPRESS_URL: http://wordpress:80
-      WORDPRESS_PLUGIN_ENDPOINT: /wp-json/content-generator/v1/receive-post
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      WORDPRESS_URL: http://wordpress
+      WORDPRESS_PLUGIN_ENDPOINT: /index.php?rest_route=/content-generator/v1/receive-post
+      WORDPRESS_HEALTH_ENDPOINT: /index.php?rest_route=/content-generator/v1/health
       WORDPRESS_WEBHOOK_SECRET: ${WORDPRESS_WEBHOOK_SECRET:-webhook-secret}
       CORS_ORIGIN: http://localhost:3000,http://localhost:8080,http://wordpress
       LOG_LEVEL: ${LOG_LEVEL:-info}
     ports:
       - '3000:3000'
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - portal-tela-network
-    volumes:
-      - ./backend/src:/app/src
-      - ./backend/node_modules:/app/node_modules
     command: npm run dev
-
-  # WordPress + MySQL
-  wordpress:
-    image: wordpress:6-apache
-    container_name: portal-tela-wordpress
-    environment:
-      WORDPRESS_DB_HOST: mysql:3306
-      WORDPRESS_DB_NAME: ${WORDPRESS_DB_NAME:-wordpress}
-      WORDPRESS_DB_USER: ${WORDPRESS_DB_USER:-wordpress}
-      WORDPRESS_DB_PASSWORD: ${WORDPRESS_DB_PASSWORD:-wordpress}
-      WORDPRESS_DEBUG: ${WORDPRESS_DEBUG:-true}
-      WORDPRESS_DEBUG_LOG: /var/www/html/wp-content/debug.log
-    ports:
-      - '8080:80'
-    depends_on:
-      - mysql
     networks:
       - portal-tela-network
-    volumes:
-      - wordpress_data:/var/www/html
-      - ./wordpress-plugin/content-generator:/var/www/html/wp-content/plugins/content-generator
-      - ./wordpress-theme/portal-tela-theme:/var/www/html/wp-content/themes/portal-tela-theme
-    environment:
-      WORDPRESS_TABLE_PREFIX: wp_
-      WORDPRESS_DEBUG_log: /var/www/html/wp-content/debug.log
-
-  # MySQL Database for WordPress
-  mysql:
-    image: mysql:8.0-alpine
-    container_name: portal-tela-mysql
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-      MYSQL_DATABASE: ${WORDPRESS_DB_NAME:-wordpress}
-      MYSQL_USER: ${WORDPRESS_DB_USER:-wordpress}
-      MYSQL_PASSWORD: ${WORDPRESS_DB_PASSWORD:-wordpress}
-    ports:
-      - '3306:3306'
-    volumes:
-      - mysql_data:/var/lib/mysql
-    networks:
-      - portal-tela-network
-    command: --default-authentication-plugin=mysql_native_password
-    healthcheck:
-      test: ['CMD', 'mysqladmin', 'ping', '-h', 'localhost']
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # pgAdmin for PostgreSQL Management (Optional)
-  pgadmin:
-    image: dpage/pgadmin4:latest
-    container_name: portal-tela-pgadmin
-    environment:
-      PGADMIN_DEFAULT_EMAIL: admin@example.com
-      PGADMIN_DEFAULT_PASSWORD: admin
-    ports:
-      - '5050:80'
-    networks:
-      - portal-tela-network
-    depends_on:
-      - postgres
-
-  # phpMyAdmin for MySQL Management (Optional)
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: portal-tela-phpmyadmin
-    environment:
-      PMA_HOST: mysql
-      PMA_USER: ${WORDPRESS_DB_USER:-wordpress}
-      PMA_PASSWORD: ${WORDPRESS_DB_PASSWORD:-wordpress}
-    ports:
-      - '8081:80'
-    networks:
-      - portal-tela-network
-    depends_on:
-      - mysql
 
 volumes:
   postgres_data:

@@ -2,6 +2,9 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+# Ensure HTTPS requests work reliably (CA bundle for outbound TLS).
+RUN apk add --no-cache ca-certificates
+
 # Copy package files
 COPY package*.json ./
 COPY tsconfig.json ./
