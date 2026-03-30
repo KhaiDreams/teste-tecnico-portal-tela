@@ -67,12 +67,15 @@ export const config = {
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
 
   OPENAI_API_KEY: getEnv('OPENAI_API_KEY'),
-  OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+  OPENAI_MODEL: process.env.OPENAI_MODEL || 'gpt-4o-mini',
 
   WORDPRESS_URL: process.env.WORDPRESS_URL || 'http://localhost:8080',
   WORDPRESS_PLUGIN_ENDPOINT:
     process.env.WORDPRESS_PLUGIN_ENDPOINT ||
-    '/wp-json/content-generator/v1/receive-post',
+    '/index.php?rest_route=/content-generator/v1/receive-post',
+  WORDPRESS_HEALTH_ENDPOINT:
+    process.env.WORDPRESS_HEALTH_ENDPOINT ||
+    '/index.php?rest_route=/content-generator/v1/health',
 
   WORDPRESS_WEBHOOK_SECRET: getEnv('WORDPRESS_WEBHOOK_SECRET'),
 
